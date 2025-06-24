@@ -4,16 +4,27 @@ import path from 'path';
 import chalk from 'chalk';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import * as cheerio from 'cheerio'; // Correct import for cheerio
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-if (process.argv.length !== 3) {
-  console.error(chalk.red('Usage: prime-gen <appNameInCamelCase> (e.g. myApp or awesomeFeature)'));
+if (process.argv.length < 3) {
+  console.error(chalk.red('Usage: prime-gen <command> <appNameInCamelCase|htmlFilePath>'));
   process.exit(1);
 }
 
-const APP_CAMEL = process.argv[2];
+const command = process.argv[2];
+
+if (command === 'scaffold') {
+  // Existing code for scaffolding Angular PrimeNG components
+  if (process.argv.length !== 4) {
+    console.error(chalk.red('Usage: prime-gen scaffold <appNameInCamelCase>'));
+    process.exit(1);
+  }
+
+  const APP_CAMEL = process.argv[3];
 const APP_KEBAB = APP_CAMEL.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
 const PAS = APP_CAMEL.charAt(0).toUpperCase() + APP_CAMEL.slice(1);
 const TITLE = APP_CAMEL.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
@@ -296,3 +307,70 @@ console.log(`{
         { label: 'Form',  icon: 'pi pi-fw pi-pencil', routerLink: ['/apps/${APP_KEBAB}/form']  }
     ]
 }`);
+} else if (command === 'convert-html-to-json') {
+  // New functionality to convert HTML to JSON
+
+  if (process.argv.length !== 4) {
+    console.error(chalk.red('Usage: prime-gen convert-html-to-json <htmlFilePath>'));
+    process.exit(1);
+  }
+
+  const htmlFilePath = process.argv[3];
+
+  // Function to parse HTML and generate JSON output
+  const convertHtmlToJson = (htmlFilePath) => {
+    const htmlContent = fs.readFileSync(htmlFilePath, 'utf8');
+    const $ = cheerio.load(htmlContent);
+
+    const formFields = [];
+
+  // Iterate over each input field inside the form
+    $('input').each((index, element) => {
+      const controlName = $(element).attr('formControlName');
+      const inputType = $(element).attr('type') || 'text';
+
+    // Try to find the label associated with this input
+    const label = $(element).prev('label').text().trim() || $(element).parent().find('label').text().trim();
+
+    // Build the JSON object for each form input
+      const formField = {
+        controlName: controlName,
+      label: label || 'Untitled', // Default label if none is found
+        type: 'input',
+        inputType: inputType,
+        formControlName: controlName,
+      validators: {}, // Add any validation here if necessary
+      };
+
+      if ($(element).attr('pInputText')) {
+        formField.legacy = { directive: 'pInputText' };
+      }
+
+      formFields.push(formField);
+    });
+
+    return JSON.stringify(formFields, null, 2);
+  };
+
+  // Convert the HTML to JSON
+  try {
+    const jsonOutput = convertHtmlToJson(htmlFilePath);
+
+    // Output JSON to the console
+    console.log(chalk.green('Converted HTML to JSON:'));
+    console.log(jsonOutput);
+
+    // Optionally, write to a JSON file
+    const outputJsonFilePath = path.basename(htmlFilePath, '.html') + '.json';
+    fs.writeFileSync(outputJsonFilePath, jsonOutput, 'utf8');
+    console.log(chalk.green(`\n✅ JSON output saved to ${outputJsonFilePath}`));
+
+  } catch (err) {
+    console.error(chalk.red(`Error: Unable to process the HTML file: ${err.message}`));
+    process.exit(1);
+  }
+} else {
+  console.error(chalk.red(`Unknown command: ${command}`));
+  console.error(chalk.red('Usage: prime-gen <command> <appNameInCamelCase|htmlFilePath>'));
+  process.exit(1);
+}
