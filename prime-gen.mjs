@@ -308,7 +308,7 @@ console.log(`{
     ]
 }`);
 } else if (command === 'convert-html-to-json') {
-  // New functionality to convert HTML to JSON
+  // New functionality to convert HTML to JSON and automatically generate the Tailwind form
 
   if (process.argv.length !== 4) {
     console.error(chalk.red('Usage: prime-gen convert-html-to-json <htmlFilePath>'));
@@ -349,21 +349,82 @@ console.log(`{
       formFields.push(formField);
     });
 
-    return JSON.stringify(formFields, null, 2);
+    return formFields; // Return as an array for later processing
   };
 
-  // Convert the HTML to JSON
+const toCamelCase = (str) => {
+  return str
+    .replace(/(?:^\w|[A-Z]|\b\w|\s+|\-+|\_+)/g, (match, index) => 
+      index === 0 ? match.toLowerCase() : match.toUpperCase()
+    )
+    .replace(/\s+/g, '')  // Remove spaces
+    .replace(/-+/g, '');  // Remove hyphens
+};
+
+  // Function to generate Tailwind CSS form HTML
+  const generateTailwindForm = (jsonData) => {
+    let formHtml = `<p-fluid>
+    <div class="flex flex-col md:flex-row gap-8">
+        <div class="md:w-1/2 space-y-4">
+            <div class="card flex flex-col gap-4">
+              <form  [formGroup]="formGroup" class="space-y-4">`;  // Start of the form
+
+    // Loop through each field in the JSON array
+    jsonData.forEach(field => {
+    const controlName = toCamelCase(field.label); // Convert label to camelCase for ids
+    const label = field.label || 'Untitled';
+
+      // Create the form group
+      let fieldHtml = `
+        <div class="flex flex-col gap-2">
+        <label for="${controlName}" class="text-sm font-medium text-gray-700">${label}</label>
+          <input
+            type="${field.inputType}"
+          id="${controlName}"
+          name="${controlName}"
+          formControlName="${controlName}"
+            class="p-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
+          placeholder="${label}"
+          />
+        </div>
+      `;
+
+      // Add the field to the form HTML
+      formHtml += fieldHtml;
+    });
+
+    formHtml += `
+      <div class="flex space-x-4">
+        <button type="submit" class="p-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Submit</button>
+        <button type="reset" class="p-2 bg-gray-300 text-black rounded-md hover:bg-gray-400">Reset</button>
+      </div>
+    `;
+
+    formHtml += `
+                </form>
+            </div>
+        </div>
+    </div>
+  </p-fluid>`;  // End of the form
+
+    return formHtml;
+  };
+
+  // Convert the HTML to JSON and generate the form
   try {
-    const jsonOutput = convertHtmlToJson(htmlFilePath);
+    const jsonData = convertHtmlToJson(htmlFilePath);
 
-    // Output JSON to the console
-    console.log(chalk.green('Converted HTML to JSON:'));
-    console.log(jsonOutput);
+    // Generate the Tailwind CSS form
+    const tailwindForm = generateTailwindForm(jsonData);
 
-    // Optionally, write to a JSON file
-    const outputJsonFilePath = path.basename(htmlFilePath, '.html') + '.json';
-    fs.writeFileSync(outputJsonFilePath, jsonOutput, 'utf8');
-    console.log(chalk.green(`\n✅ JSON output saved to ${outputJsonFilePath}`));
+    // Output the generated form HTML
+    console.log(chalk.green('Generated Tailwind CSS Form:'));
+    console.log(tailwindForm);
+
+    // Optionally, save the form HTML to a file
+    const outputHtmlFilePath = path.basename(htmlFilePath, '.html') + '-tailwind-form.html';
+    fs.writeFileSync(outputHtmlFilePath, tailwindForm, 'utf8');
+    console.log(chalk.green(`\n✅ Form HTML output saved to ${outputHtmlFilePath}`));
 
   } catch (err) {
     console.error(chalk.red(`Error: Unable to process the HTML file: ${err.message}`));
