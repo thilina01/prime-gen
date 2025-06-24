@@ -1,0 +1,19 @@
+{
+  "name": "prime-gen",
+  "version": "1.0.0",
+  "description": "CLI tool to scaffold Angular PrimeNG components",
+  "type": "module",
+  "main": "prime-gen.js",
+  "bin": {
+    "prime-gen": "./prime-gen.mjs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "author": "",
+  "license": "ISC",
+  "keywords": ["angular", "primeng", "cli", "scaffold"],
+  "dependencies": {
+    "chalk": "^5.4.1"
+  }
+}
