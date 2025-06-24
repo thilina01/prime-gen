@@ -2,6 +2,11 @@
 import fs from 'fs';
 import path from 'path';
 import chalk from 'chalk';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
 
 if (process.argv.length !== 3) {
   console.error(chalk.red('Usage: prime-gen <appNameInCamelCase> (e.g. myApp or awesomeFeature)'));
@@ -43,12 +48,234 @@ export const ${APP_CAMEL}Routes: Routes = [
 ];
 `);
 
-writeFile(`${BASE}/${APP_KEBAB}-form.component.ts`, `...`); // Add your TS code here
-writeFile(`${BASE}/${APP_KEBAB}-form.component.html`, `...`); // Add your HTML code here
+writeFile(`${BASE}/${APP_KEBAB}-form.component.ts`, `
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { ReactiveFormsModule, FormGroup, FormBuilder, Validators } from '@angular/forms';
+import { InputTextModule } from 'primeng/inputtext';
+import { ButtonModule } from 'primeng/button';
+import { CardModule } from 'primeng/card';
+import { RippleModule } from 'primeng/ripple';
+import {FluidModule} from 'primeng/fluid';
+import {SelectModule} from 'primeng/select';
+import {FormsModule} from '@angular/forms';
+import {TextareaModule} from 'primeng/textarea';
+
+@Component({
+  selector: 'app-${APP_KEBAB}-form',
+  standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    InputTextModule,
+    ButtonModule,
+    CardModule,
+    RippleModule,
+    FluidModule,
+    SelectModule,
+    FormsModule,
+    TextareaModule
+  ],
+  templateUrl: './${APP_KEBAB}-form.component.html',
+  styleUrls: ['./${APP_KEBAB}-form.component.scss']
+})
+export class ${PAS}FormComponent implements OnInit {
+  form!: FormGroup;
+
+  constructor(private fb: FormBuilder) {}
+
+  dropdownItems = [
+    {name: 'Option 1', code: 'Option 1'},
+    {name: 'Option 2', code: 'Option 2'},
+    {name: 'Option 3', code: 'Option 3'}
+  ];
+
+  dropdownItem = null;
+
+  ngOnInit(): void {}
+}
+`);
+
+writeFile(`${BASE}/${APP_KEBAB}-form.component.html`, 
+  `<p-fluid>
+    <div class="flex flex-col md:flex-row gap-8">
+        <div class="md:w-1/2 space-y-4">
+            <div class="card flex flex-col gap-4">
+                <div class="font-semibold text-xl">Vertical</div>
+                <div class="flex flex-col gap-2">
+                    <label for="name1">Name</label>
+                    <input pInputText id="name1" type="text" />
+                </div>
+                <div class="flex flex-col gap-2">
+                    <label for="email1">Email</label>
+                    <input pInputText id="email1" type="text" />
+                </div>
+                <div class="flex flex-col gap-2">
+                    <label for="age1">Age</label>
+                    <input pInputText id="age1" type="text" />
+                </div>
+            </div>
+
+            <div class="card flex flex-col gap-4">
+                <div class="font-semibold text-xl">Vertical Grid</div>
+                <div class="flex flex-wrap gap-4">
+                    <div class="flex flex-col grow basis-0 gap-2">
+                        <label for="name2">Name</label>
+                        <input pInputText id="name2" type="text" />
+                    </div>
+                    <div class="flex flex-col grow basis-0 gap-2">
+                        <label for="email2">Email</label>
+                        <input pInputText id="email2" type="text" />
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="md:w-1/2 space-y-4">
+            <div class="card flex flex-col gap-4">
+                <div class="font-semibold text-xl">Horizontal</div>
+                <div class="grid grid-cols-12 gap-2">
+                    <label for="name3" class="flex items-center col-span-12 mb-2 md:col-span-2 md:mb-0">Name</label>
+                    <div class="col-span-12 md:col-span-10">
+                        <input pInputText id="name3" type="text" />
+                    </div>
+                </div>
+                <div class="grid grid-cols-12 gap-2">
+                    <label for="email3" class="flex items-center col-span-12 mb-2 md:col-span-2 md:mb-0">Email</label>
+                    <div class="col-span-12 md:col-span-10">
+                        <input pInputText id="email3" type="text" />
+                    </div>
+                </div>
+            </div>
+
+            <div class="card flex flex-col gap-4">
+                <div class="font-semibold text-xl">Inline</div>
+                <div class="flex flex-wrap items-start gap-4">
+                    <div class="field">
+                        <label for="firstname1" class="sr-only">Firstname</label>
+                        <input pInputText id="firstname1" type="text" placeholder="Firstname" />
+                    </div>
+                    <div class="field">
+                        <label for="lastname1" class="sr-only">Lastname</label>
+                        <input pInputText id="lastname1" type="text" placeholder="Lastname" />
+                    </div>
+                    <p-button label="Submit" [fluid]="false"></p-button>
+                </div>
+            </div>
+            <div class="card flex flex-col gap-4">
+                <div class="font-semibold text-xl">Help Text</div>
+                <div class="flex flex-wrap gap-2">
+                    <label for="username">Username</label>
+                    <input pInputText id="username" type="text" />
+                    <small>Enter your username to reset your password.</small>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="flex mt-8">
+        <div class="card flex flex-col gap-4 w-full">
+            <div class="font-semibold text-xl">Advanced</div>
+            <div class="flex flex-col md:flex-row gap-4">
+                <div class="flex flex-wrap gap-2 w-full">
+                    <label for="firstname2">Firstname</label>
+                    <input pInputText id="firstname2" type="text" />
+                </div>
+                <div class="flex flex-wrap gap-2 w-full">
+                    <label for="lastname2">Lastname</label>
+                    <input pInputText id="lastname2" type="text" />
+                </div>
+            </div>
+
+            <div class="flex flex-wrap">
+                <label for="address">Address</label>
+                <textarea pTextarea id="address" rows="4"></textarea>
+            </div>
+
+            <div class="flex flex-col md:flex-row gap-4">
+                <div class="flex flex-wrap gap-2 w-full">
+                    <label for="state">State</label>
+                    <p-select id="state" [(ngModel)]="dropdownItem" [options]="dropdownItems" optionLabel="name" placeholder="Select One" class="w-full"></p-select>
+                </div>
+                <div class="flex flex-wrap gap-2 w-full">
+                    <label for="zip">Zip</label>
+                    <input pInputText id="zip" type="text" />
+                </div>
+            </div>
+        </div>
+    </div>
+  </p-fluid>`);
 writeFile(`${BASE}/${APP_KEBAB}-form.component.scss`, `/* styles for ${APP_KEBAB} form */`);
 
-writeFile(`${BASE}/${APP_KEBAB}-table.component.ts`, `...`); // Add your TS code here
-writeFile(`${BASE}/${APP_KEBAB}-table.component.html`, `...`); // Add your HTML code here
+writeFile(`${BASE}/${APP_KEBAB}-table.component.ts`, `
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { TableModule } from 'primeng/table';
+import { ButtonModule } from 'primeng/button';
+import { RippleModule } from 'primeng/ripple';
+
+export interface ${PAS}Item {
+  id: number;
+  name: string;
+}
+
+@Component({
+  selector: 'app-${APP_KEBAB}-table',
+  standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [CommonModule, TableModule, ButtonModule, RippleModule],
+  templateUrl: './${APP_KEBAB}-table.component.html',
+  styleUrls: ['./${APP_KEBAB}-table.component.scss']
+})
+export class ${PAS}TableComponent implements OnInit {
+  items: ${PAS}Item[] = [];
+
+  ngOnInit(): void {
+    this.items = [
+      { id: 1, name: 'Item 1' },
+      { id: 2, name: 'Item 2' }
+    ];
+  }
+
+  addItem(): void {
+    const nextId = this.items.length + 1;
+    this.items = [...this.items, { id: nextId, name: \"Item \${nextId}\" }];
+  }
+}
+`);
+
+writeFile(`${BASE}/${APP_KEBAB}-table.component.html`, `<div class="card">
+  <div class="flex justify-between items-center mb-8">
+    <span class="text-surface-900 dark:text-surface-0 text-xl font-semibold">
+      ${TITLE} Table
+    </span>
+    <button
+      pButton
+      pRipple
+      class="font-semibold"
+      icon="pi pi-plus"
+      label="Add New"
+      (click)="addItem()"
+    ></button>
+  </div>
+
+  <div class="table-responsive">
+    <p-table [value]="items">
+      <ng-template pTemplate="header">
+        <tr>
+          <th>ID</th>
+          <th>Name</th>
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-item>
+        <tr>
+          <td>{{ item.id }}</td>
+          <td>{{ item.name }}</td>
+        </tr>
+      </ng-template>
+    </p-table>
+  </div>
+</div>`);
 writeFile(`${BASE}/${APP_KEBAB}-table.component.scss`, `/* styles for ${APP_KEBAB} table */`);
 
 console.log(chalk.green(`\n✅ Files created under ${BASE}`));
