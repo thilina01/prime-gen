@@ -10,9 +10,17 @@ import { OpenAI } from 'openai';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
+// Get the OpenAI API key from environment variable
+const openaiApiKey = process.env.OPENAI_API_KEY;
+
+if (!openaiApiKey) {
+  console.error(chalk.red('Error: OPENAI_API_KEY is not set in the environment.'));
+  process.exit(1);
+}
+
 // Set up OpenAI client
 const openai = new OpenAI({
-  apiKey: 'KEY' // Replace with your OpenAI API key
+  apiKey: openaiApiKey // Use the API key from the environment
 });
 
 // Ensure the correct number of arguments are passed
@@ -114,11 +122,11 @@ async function generateTailwindHTML(formFieldsJson) {
 
     <div class="card">
         <div class="flex justify-between items-center mb-8">
-            <span class="text-surface-900 dark:text-surface-0 text-xl font-semibold">Sample Form</span>
+            <span class="text-surface-900 dark:text-surface-0 text-xl font-semibold">${TITLE}</span>
         </div>
         <form [formGroup]="form" (ngSubmit)="onSubmit()">
         
-        <!-- Sample field for style reference - don not include in the response -->
+        <!-- Sample field for style reference - do not include in the response -->
         <div class="field mb-4">
             <label for="name" class="block text-sm font-medium">Name</label>
             <input id="name" type="text" pInputText formControlName="name" class="w-full" />
@@ -155,9 +163,16 @@ async function generateTailwindHTML(formFieldsJson) {
       ],
     });
 
-    // Process the response and return the generated HTML
-    const htmlOutput = response.choices[0].message.content;
-    return htmlOutput;
+    // Process the response to extract just the HTML
+    let htmlOutput = response.choices[0].message.content;
+
+    // Remove any instructions, comments, or unwanted content from the response
+    htmlOutput = htmlOutput.replace(/<!--.*?-->/gs, ''); // Remove comments (style references, etc.)
+    
+
+    // Return the cleaned HTML
+    return htmlOutput.trim();
+
   } catch (err) {
     console.error(chalk.red('Error generating HTML layout from JSON:', err));
   }
