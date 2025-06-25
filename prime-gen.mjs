@@ -218,7 +218,8 @@ async function processFormFile() {
     // Optionally, write the generated HTML to a file
     writeFile(`${BASE}/${APP_KEBAB}-form.component.html`, tailwindHtml);
 
-
+    generateInterfaceFile(formFieldsJson);
+    generateServiceFile();
 
     writeFile(`${BASE}/${APP_KEBAB}-form.component.ts`, `
 import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
@@ -232,6 +233,8 @@ import { FluidModule } from 'primeng/fluid';
 import { SelectModule } from 'primeng/select';
 import { FormsModule } from '@angular/forms';
 import { TextareaModule } from 'primeng/textarea';
+import { ${PAS}Service } from './${APP_KEBAB}.service';
+import { ${PAS} } from './${APP_KEBAB}.model';
 
 @Component({
   selector: 'app-${APP_KEBAB}-form',
@@ -255,7 +258,8 @@ import { TextareaModule } from 'primeng/textarea';
 export class ${PAS}FormComponent implements OnInit {
   form!: FormGroup;
 
-  constructor(private fb: FormBuilder) {}
+  constructor(private fb: FormBuilder,
+  private ${APP_CAMEL}Service: ${PAS}Service) {}
 
 
   ngOnInit(): void {
@@ -330,9 +334,8 @@ import { CommonModule } from '@angular/common';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { RippleModule } from 'primeng/ripple';
-
-
-${generateInterface(formFieldsJson)}
+import { ${PAS}Service } from './${APP_KEBAB}.service';
+import { ${PAS} } from './${APP_KEBAB}.model';
 
 @Component({
   selector: 'app-${APP_KEBAB}-table',
@@ -344,6 +347,8 @@ ${generateInterface(formFieldsJson)}
 })
 export class ${PAS}TableComponent implements OnInit {
   items: ${PAS}[] = [];
+
+constructor(private ${APP_CAMEL}Service: ${PAS}Service) {}
 
   ngOnInit(): void {
       ${generateTableRows(formFieldsJson)}
@@ -444,16 +449,36 @@ function generateTable(formFieldsJson) {
   `;
 }
 
-function generateInterface(formFieldsJson) {
+function generateInterfaceFile(formFieldsJson) {
   const lines = formFieldsJson.map(field => {
     const name = field.formControlName;
     const type = (field.type === 'number') ? 'number' : 'string';
     return `  ${name}: ${type};`;
   });
 
-  return `export interface ${PAS} {\n
-  id: number; \n
-  ${lines.join('\n')}\n}`;
+  const interfaceContent = `export interface ${PAS} {\n  id: number;\n${lines.join('\n')}\n}\n`;
+
+  writeFile(`${BASE}/${APP_KEBAB}.model.ts`, interfaceContent);
+}
+
+function generateServiceFile() {
+  const serviceContent = `
+import { Injectable } from '@angular/core';
+import { BehaviorSubject } from 'rxjs';
+import { ${PAS} } from './${APP_KEBAB}.model';
+
+@Injectable({ providedIn: 'root' })
+export class ${PAS}Service {
+  private _selectedItem = new BehaviorSubject<${PAS} | null>(null);
+  selectedItem$ = this._selectedItem.asObservable();
+
+  setSelectedItem(item: ${PAS} | null): void {
+    this._selectedItem.next(item);
+  }
+}
+  `.trim();
+
+  writeFile(`${BASE}/${APP_KEBAB}.service.ts`, serviceContent);
 }
 
 
