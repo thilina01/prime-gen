@@ -6,6 +6,8 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import * as cheerio from 'cheerio';
 import { OpenAI } from 'openai';
+import { Project, SyntaxKind } from 'ts-morph';
+
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
@@ -162,7 +164,7 @@ async function generateTailwindHTML(formFieldsJson) {
     JSON:
     ${JSON.stringify(formFieldsJson)}
 
-    Ensure that each input field is correctly associated with its label using the "for" and "id" attributes. Only return the full HTML form with the fields added, no other text or explanation.
+    Ensure that each input field is correctly associated with its label using the "for" and "id" attributes. Only return the full HTML form with the fields added, Strictly no any other text or explanation.
   `;
 
   try {
@@ -261,6 +263,33 @@ export class ${PAS}FormComponent implements OnInit {
 }
 `);
 
+function updateAppsRoutesTs(appKebab, appTitle, appCamel) {
+  const project = new Project();
+  const filePath = path.resolve('src/app/apps/apps.routes.ts'); // adjust as needed
+  const sourceFile = project.addSourceFileAtPath(filePath);
+
+  const routesArray = sourceFile.getFirstDescendantByKindOrThrow(SyntaxKind.ArrayLiteralExpression);
+
+  const alreadyExists = routesArray.getElements().some(el => el.getText().includes(`path: '${appKebab}'`));
+
+  if (alreadyExists) {
+    console.log(chalk.yellow(`⚠️  Route for '${appKebab}' already exists in apps.routes.ts`));
+    return;
+  }
+
+  const newRoute = `{
+    path: '${appKebab}',
+    data: { breadcrumb: '${appTitle}' },
+    loadChildren: () =>
+      import('@/apps/${appKebab}/${appKebab}.routes').then(m => m.${appCamel}Routes)
+  }`;
+
+  routesArray.addElement(newRoute);
+  sourceFile.saveSync();
+
+  console.log(chalk.green(`✅ Route for '${appKebab}' added to apps.routes.ts`));
+}
+
 writeFile(`${BASE}/${APP_KEBAB}-table.component.html`, `<div class="card">
   <div class="flex justify-between items-center mb-8">
     <span class="text-surface-900 dark:text-surface-0 text-xl font-semibold">
@@ -280,7 +309,9 @@ writeFile(`${BASE}/${APP_KEBAB}-table.component.html`, `<div class="card">
       ${generateTable(formFieldsJson)}
   </div>
 </div>`);
-  }
+
+  updateAppsRoutesTs(APP_KEBAB, TITLE, APP_CAMEL);  
+}
 }
 
 // Call the function to process the HTML file
