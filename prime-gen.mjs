@@ -266,15 +266,21 @@ export class ${PAS}FormComponent implements OnInit {
     this.form = this.fb.group({
       ${generateFormGroup(formFieldsJson)}
     });
+
+    this.${APP_CAMEL}Service.selectedItem$.subscribe(item => {
+      if (item) {
+        this.form.patchValue(item);
+      }
+    });
   }
 
-    onSubmit() {
-        if (this.form.valid) {
-            console.log('Form Submitted!', this.form.value);
-        } else {
-            console.log('Form is invalid');
-        }
+  onSubmit() {
+    if (this.form.valid) {
+      const formData = this.form.value;
+      console.log('Submitted:', formData);
+      this.${APP_CAMEL}Service.setSelectedItem(null);
     }
+  }
 }
 `);
 
@@ -331,6 +337,7 @@ export class ${PAS}FormComponent implements OnInit {
   writeFile(`${BASE}/${APP_KEBAB}-table.component.ts`, `
 import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
 import { CommonModule } from '@angular/common';
+import { ActivatedRoute, Router } from '@angular/router';
 import { TableModule } from 'primeng/table';
 import { ButtonModule } from 'primeng/button';
 import { RippleModule } from 'primeng/ripple';
@@ -348,7 +355,10 @@ import { ${PAS} } from './${APP_KEBAB}.model';
 export class ${PAS}TableComponent implements OnInit {
   items: ${PAS}[] = [];
 
-constructor(private ${APP_CAMEL}Service: ${PAS}Service) {}
+  constructor(private router: Router,
+      private route: ActivatedRoute, 
+      private ${APP_CAMEL}Service: ${PAS}Service) { }
+
 
   ngOnInit(): void {
       ${generateTableRows(formFieldsJson)}
@@ -356,9 +366,14 @@ constructor(private ${APP_CAMEL}Service: ${PAS}Service) {}
 
       ${generateAddItemFunction(formFieldsJson)}
 
-      editItem(id: number) {
-        throw new Error('Method not implemented.');
-      }
+
+    editItem(id: number) {
+        const item = this.items.find(i => i.id === id);
+        if (item) {
+            this.${APP_CAMEL}Service.setSelectedItem(item);
+            this.router.navigate(['../form'], { relativeTo: this.route });
+        }
+    }
       deleteItem(id: number): void {
         this.items = this.items.filter(item => item.id !== id);
       }
