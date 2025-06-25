@@ -47,9 +47,31 @@ function writeFile(filePath, content) {
   fs.writeFileSync(filePath, content.trimStart());
 }
 
+// Function to handle directory input and get the first HTML file if it's a directory
+function getHtmlFilePath(inputPath) {
+  const stats = fs.statSync(inputPath);
+
+  if (stats.isDirectory()) {
+    // Get all HTML files in the directory
+    const files = fs.readdirSync(inputPath).filter(file => file.endsWith('.html'));
+    if (files.length > 0) {
+      // Return the first HTML file in the directory
+      return path.join(inputPath, files[0]);
+    } else {
+      console.error(chalk.red(`No HTML files found in the directory: ${inputPath}`));
+      process.exit(1);
+    }
+  } else if (stats.isFile() && inputPath.endsWith('.html')) {
+    return inputPath;
+  } else {
+    console.error(chalk.red(`Invalid file or directory path provided: ${inputPath}`));
+    process.exit(1);
+  }
+}
+
 // First prompt: Extract JSON from HTML
 async function extractFormFieldsToJson() {
-  const formHtmlPath = path.resolve(HTML_FILE_PATH);
+  const formHtmlPath = getHtmlFilePath(HTML_FILE_PATH);
 
   // Check if the file exists
   if (!fs.existsSync(formHtmlPath)) {
@@ -57,10 +79,10 @@ async function extractFormFieldsToJson() {
     process.exit(1);
   }
 
-const formHtml = fs.readFileSync(formHtmlPath, 'utf-8');
+  const formHtml = fs.readFileSync(formHtmlPath, 'utf-8');
 
-// Load the HTML content using cheerio
-const $ = cheerio.load(formHtml);
+  // Load the HTML content using cheerio
+  const $ = cheerio.load(formHtml);
 
   // Prepare the prompt to extract form fields into JSON
   const prompt = `
@@ -88,19 +110,7 @@ const $ = cheerio.load(formHtml);
     console.log("Raw JSON response from OpenAI:\n", jsonOutput);
 
     // More aggressive cleanup: strip unwanted characters before and after the JSON array
-    // jsonOutput = jsonOutput.replace(/^\s*(.*?)(\[{)/, '[').replace(/(\}\s*)\]$/, ']');
-    
     jsonOutput = jsonOutput.match(/\[[\s\S]*?\]/)?.[0];
-    
-    // Ensure the last object is properly closed with }
-    // if (jsonOutput.endsWith('[')) {
-    //   jsonOutput += '{}]';  // Add an empty object if the array ends without a proper closing brace
-    // }
-    
-    // Ensure the JSON array is properly closed
-    // if (jsonOutput && !jsonOutput.endsWith(']')) {
-    //   jsonOutput += ']';
-    // }
 
     // Log the cleaned response for inspection
     console.log("Cleaned JSON response:\n", jsonOutput);
@@ -168,7 +178,7 @@ async function generateTailwindHTML(formFieldsJson) {
 
     // Remove any instructions, comments, or unwanted content from the response
     htmlOutput = htmlOutput.replace(/<!--.*?-->/gs, ''); // Remove comments (style references, etc.)
-    
+
 
     // Return the cleaned HTML
     return htmlOutput.trim();
@@ -189,9 +199,65 @@ async function processFormFile() {
 
     // Output the generated HTML layout
     console.log(tailwindHtml);
-    
+
     // Optionally, write the generated HTML to a file
     writeFile(`${BASE}/${APP_KEBAB}-form.component.html`, tailwindHtml);
+
+
+
+    writeFile(`${BASE}/${APP_KEBAB}-form.component.ts`, `
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { ReactiveFormsModule, FormGroup, FormBuilder, Validators, FormControl } from '@angular/forms';
+import { InputTextModule } from 'primeng/inputtext';
+import { ButtonModule } from 'primeng/button';
+import { CardModule } from 'primeng/card';
+import { RippleModule } from 'primeng/ripple';
+import { FluidModule } from 'primeng/fluid';
+import { SelectModule } from 'primeng/select';
+import { FormsModule } from '@angular/forms';
+import { TextareaModule } from 'primeng/textarea';
+
+@Component({
+  selector: 'app-${APP_KEBAB}-form',
+  standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [
+    CommonModule,
+    ReactiveFormsModule,
+    InputTextModule,
+    ButtonModule,
+    CardModule,
+    RippleModule,
+    FluidModule,
+    SelectModule,
+    FormsModule,
+    TextareaModule
+  ],
+  templateUrl: './${APP_KEBAB}-form.component.html',
+  styleUrls: ['./${APP_KEBAB}-form.component.scss']
+})
+export class ${PAS}FormComponent implements OnInit {
+  form!: FormGroup;
+
+  constructor(private fb: FormBuilder) {}
+
+
+  ngOnInit(): void {
+    this.form = this.fb.group({
+      ${generateFormGroup(formFieldsJson)}
+    });
+  }
+
+    onSubmit() {
+        if (this.form.valid) {
+            console.log('Form Submitted!', this.form.value);
+        } else {
+            console.log('Form is invalid');
+        }
+    }
+}
+`);
   }
 }
 
@@ -222,163 +288,18 @@ export const ${APP_CAMEL}Routes: Routes = [
 ];
 `);
 
-writeFile(`${BASE}/${APP_KEBAB}-form.component.ts`, `
-import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { ReactiveFormsModule, FormGroup, FormBuilder, Validators } from '@angular/forms';
-import { InputTextModule } from 'primeng/inputtext';
-import { ButtonModule } from 'primeng/button';
-import { CardModule } from 'primeng/card';
-import { RippleModule } from 'primeng/ripple';
-import {FluidModule} from 'primeng/fluid';
-import {SelectModule} from 'primeng/select';
-import {FormsModule} from '@angular/forms';
-import {TextareaModule} from 'primeng/textarea';
+// Function to generate FormGroup based on JSON
+function generateFormGroup(formFieldsJson) {
+  const formGroupLines = formFieldsJson.map(field => {
+    return `    ${field.formControlName}: new FormControl('', []),`;
+  });
 
-@Component({
-  selector: 'app-${APP_KEBAB}-form',
-  standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [
-    CommonModule,
-    ReactiveFormsModule,
-    InputTextModule,
-    ButtonModule,
-    CardModule,
-    RippleModule,
-    FluidModule,
-    SelectModule,
-    FormsModule,
-    TextareaModule
-  ],
-  templateUrl: './${APP_KEBAB}-form.component.html',
-  styleUrls: ['./${APP_KEBAB}-form.component.scss']
-})
-export class ${PAS}FormComponent implements OnInit {
-  form!: FormGroup;
-
-  constructor(private fb: FormBuilder) {}
-
-  dropdownItems = [
-    {name: 'Option 1', code: 'Option 1'},
-    {name: 'Option 2', code: 'Option 2'},
-    {name: 'Option 3', code: 'Option 3'}
-  ];
-
-  dropdownItem = null;
-
-  ngOnInit(): void {}
+  return `
+    ${formGroupLines.join('\n')}
+`;
 }
-`);
 
-writeFile(`${BASE}/${APP_KEBAB}-form.component.html`, 
-  `<p-fluid>
-    <div class="flex flex-col md:flex-row gap-8">
-        <div class="md:w-1/2 space-y-4">
-            <div class="card flex flex-col gap-4">
-                <div class="font-semibold text-xl">Vertical</div>
-                <div class="flex flex-col gap-2">
-                    <label for="name1">Name</label>
-                    <input pInputText id="name1" type="text" />
-                </div>
-                <div class="flex flex-col gap-2">
-                    <label for="email1">Email</label>
-                    <input pInputText id="email1" type="text" />
-                </div>
-                <div class="flex flex-col gap-2">
-                    <label for="age1">Age</label>
-                    <input pInputText id="age1" type="text" />
-                </div>
-            </div>
 
-            <div class="card flex flex-col gap-4">
-                <div class="font-semibold text-xl">Vertical Grid</div>
-                <div class="flex flex-wrap gap-4">
-                    <div class="flex flex-col grow basis-0 gap-2">
-                        <label for="name2">Name</label>
-                        <input pInputText id="name2" type="text" />
-                    </div>
-                    <div class="flex flex-col grow basis-0 gap-2">
-                        <label for="email2">Email</label>
-                        <input pInputText id="email2" type="text" />
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="md:w-1/2 space-y-4">
-            <div class="card flex flex-col gap-4">
-                <div class="font-semibold text-xl">Horizontal</div>
-                <div class="grid grid-cols-12 gap-2">
-                    <label for="name3" class="flex items-center col-span-12 mb-2 md:col-span-2 md:mb-0">Name</label>
-                    <div class="col-span-12 md:col-span-10">
-                        <input pInputText id="name3" type="text" />
-                    </div>
-                </div>
-                <div class="grid grid-cols-12 gap-2">
-                    <label for="email3" class="flex items-center col-span-12 mb-2 md:col-span-2 md:mb-0">Email</label>
-                    <div class="col-span-12 md:col-span-10">
-                        <input pInputText id="email3" type="text" />
-                    </div>
-                </div>
-            </div>
-
-            <div class="card flex flex-col gap-4">
-                <div class="font-semibold text-xl">Inline</div>
-                <div class="flex flex-wrap items-start gap-4">
-                    <div class="field">
-                        <label for="firstname1" class="sr-only">Firstname</label>
-                        <input pInputText id="firstname1" type="text" placeholder="Firstname" />
-                    </div>
-                    <div class="field">
-                        <label for="lastname1" class="sr-only">Lastname</label>
-                        <input pInputText id="lastname1" type="text" placeholder="Lastname" />
-                    </div>
-                    <p-button label="Submit" [fluid]="false"></p-button>
-                </div>
-            </div>
-            <div class="card flex flex-col gap-4">
-                <div class="font-semibold text-xl">Help Text</div>
-                <div class="flex flex-wrap gap-2">
-                    <label for="username">Username</label>
-                    <input pInputText id="username" type="text" />
-                    <small>Enter your username to reset your password.</small>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="flex mt-8">
-        <div class="card flex flex-col gap-4 w-full">
-            <div class="font-semibold text-xl">Advanced</div>
-            <div class="flex flex-col md:flex-row gap-4">
-                <div class="flex flex-wrap gap-2 w-full">
-                    <label for="firstname2">Firstname</label>
-                    <input pInputText id="firstname2" type="text" />
-                </div>
-                <div class="flex flex-wrap gap-2 w-full">
-                    <label for="lastname2">Lastname</label>
-                    <input pInputText id="lastname2" type="text" />
-                </div>
-            </div>
-
-            <div class="flex flex-wrap">
-                <label for="address">Address</label>
-                <textarea pTextarea id="address" rows="4"></textarea>
-            </div>
-
-            <div class="flex flex-col md:flex-row gap-4">
-                <div class="flex flex-wrap gap-2 w-full">
-                    <label for="state">State</label>
-                    <p-select id="state" [(ngModel)]="dropdownItem" [options]="dropdownItems" optionLabel="name" placeholder="Select One" class="w-full"></p-select>
-                </div>
-                <div class="flex flex-wrap gap-2 w-full">
-                    <label for="zip">Zip</label>
-                    <input pInputText id="zip" type="text" />
-                </div>
-            </div>
-        </div>
-    </div>
-  </p-fluid>`);
 writeFile(`${BASE}/${APP_KEBAB}-form.component.scss`, `/* styles for ${APP_KEBAB} form */`);
 
 writeFile(`${BASE}/${APP_KEBAB}-table.component.ts`, `
