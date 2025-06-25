@@ -4,27 +4,20 @@ import path from 'path';
 import chalk from 'chalk';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
-import * as cheerio from 'cheerio'; // Correct import for cheerio
-
+import * as cheerio from 'cheerio';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-if (process.argv.length < 3) {
-  console.error(chalk.red('Usage: prime-gen <command> <appNameInCamelCase|htmlFilePath>'));
+// Ensure the correct number of arguments are passed
+if (process.argv.length !== 4) {
+  console.error(chalk.red('Usage: prime-gen <appNameInCamelCase> <htmlFilePath>'));
   process.exit(1);
 }
 
-const command = process.argv[2];
+const APP_CAMEL = process.argv[2];
+const HTML_FILE_PATH = process.argv[3];
 
-if (command === 'scaffold') {
-  // Existing code for scaffolding Angular PrimeNG components
-  if (process.argv.length !== 4) {
-    console.error(chalk.red('Usage: prime-gen scaffold <appNameInCamelCase>'));
-    process.exit(1);
-  }
-
-  const APP_CAMEL = process.argv[3];
 const APP_KEBAB = APP_CAMEL.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
 const PAS = APP_CAMEL.charAt(0).toUpperCase() + APP_CAMEL.slice(1);
 const TITLE = APP_CAMEL.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
@@ -35,10 +28,59 @@ const TITLE = APP_CAMEL.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
 const BASE = path.join('src/app/apps', APP_KEBAB);
 fs.mkdirSync(BASE, { recursive: true });
 
+// Function to write content to a file
 function writeFile(filePath, content) {
   fs.writeFileSync(filePath, content.trimStart());
 }
 
+// Read the form HTML file from the provided path and extract form fields
+function processFormFile() {
+  const formHtmlPath = path.resolve(HTML_FILE_PATH);
+
+  // Check if the file exists
+  if (!fs.existsSync(formHtmlPath)) {
+    console.error(chalk.red(`Error: File not found at ${formHtmlPath}`));
+    process.exit(1);
+  }
+
+const formHtml = fs.readFileSync(formHtmlPath, 'utf-8');
+
+// Load the HTML content using cheerio
+const $ = cheerio.load(formHtml);
+
+// Extract form fields and their attributes into the required JSON format
+const formFields = [];
+$('input, select, textarea').each((index, element) => {
+    let label = $(element).prev('label').text().trim(); // Try to find previous label
+
+    // If no label is found, check for the "for" attribute or use the placeholder or ID
+    if (!label) {
+      label = $(element).closest('div').find('label').text().trim() || $(element).attr('id') || $(element).attr('placeholder') || 'Unnamed';
+    }
+
+  const inputType = $(element).attr('type') || $(element).prop('tagName').toLowerCase();
+  const fieldType = $(element).prop('tagName').toLowerCase();
+
+  formFields.push({
+    label,
+    type: fieldType,
+    inputType,
+    validators: {} // Add custom validation logic here if needed
+  });
+});
+
+// Output the extracted form fields as a JSON array
+console.log(JSON.stringify(formFields, null, 2));
+}
+
+// Call the function to process the HTML file
+try {
+  processFormFile();
+} catch (err) {
+  console.error(chalk.red('An error occurred:', err));
+  process.exit(1);
+}
+// Example file generation (kept from your existing script)
 writeFile(`${BASE}/${APP_KEBAB}.routes.ts`, `
 import { Routes } from '@angular/router';
 
@@ -307,131 +349,3 @@ console.log(`{
         { label: 'Form',  icon: 'pi pi-fw pi-pencil', routerLink: ['/apps/${APP_KEBAB}/form']  }
     ]
 }`);
-} else if (command === 'convert-html-to-json') {
-  // New functionality to convert HTML to JSON and automatically generate the Tailwind form
-
-  if (process.argv.length !== 4) {
-    console.error(chalk.red('Usage: prime-gen convert-html-to-json <htmlFilePath>'));
-    process.exit(1);
-  }
-
-  const htmlFilePath = process.argv[3];
-
-  // Function to parse HTML and generate JSON output
-  const convertHtmlToJson = (htmlFilePath) => {
-    const htmlContent = fs.readFileSync(htmlFilePath, 'utf8');
-    const $ = cheerio.load(htmlContent);
-
-    const formFields = [];
-
-  // Iterate over each input field inside the form
-    $('input').each((index, element) => {
-      const controlName = $(element).attr('formControlName');
-      const inputType = $(element).attr('type') || 'text';
-
-    // Try to find the label associated with this input
-    const label = $(element).prev('label').text().trim() || $(element).parent().find('label').text().trim();
-
-    // Build the JSON object for each form input
-      const formField = {
-        controlName: controlName,
-      label: label || 'Untitled', // Default label if none is found
-        type: 'input',
-        inputType: inputType,
-        formControlName: controlName,
-      validators: {}, // Add any validation here if necessary
-      };
-
-      if ($(element).attr('pInputText')) {
-        formField.legacy = { directive: 'pInputText' };
-      }
-
-      formFields.push(formField);
-    });
-
-    return formFields; // Return as an array for later processing
-  };
-
-const toCamelCase = (str) => {
-  return str
-    .replace(/(?:^\w|[A-Z]|\b\w|\s+|\-+|\_+)/g, (match, index) => 
-      index === 0 ? match.toLowerCase() : match.toUpperCase()
-    )
-    .replace(/\s+/g, '')  // Remove spaces
-    .replace(/-+/g, '');  // Remove hyphens
-};
-
-  // Function to generate Tailwind CSS form HTML
-  const generateTailwindForm = (jsonData) => {
-    let formHtml = `<p-fluid>
-    <div class="flex flex-col md:flex-row gap-8">
-        <div class="md:w-1/2 space-y-4">
-            <div class="card flex flex-col gap-4">
-              <form  [formGroup]="formGroup" class="space-y-4">`;  // Start of the form
-
-    // Loop through each field in the JSON array
-    jsonData.forEach(field => {
-    const controlName = toCamelCase(field.label); // Convert label to camelCase for ids
-    const label = field.label || 'Untitled';
-
-      // Create the form group
-      let fieldHtml = `
-        <div class="flex flex-col gap-2">
-        <label for="${controlName}" class="text-sm font-medium text-gray-700">${label}</label>
-          <input
-            type="${field.inputType}"
-          id="${controlName}"
-          name="${controlName}"
-          formControlName="${controlName}"
-            class="p-2 border rounded-md shadow-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500"
-          placeholder="${label}"
-          />
-        </div>
-      `;
-
-      // Add the field to the form HTML
-      formHtml += fieldHtml;
-    });
-
-    formHtml += `
-      <div class="flex space-x-4">
-        <button type="submit" class="p-2 bg-blue-500 text-white rounded-md hover:bg-blue-600">Submit</button>
-        <button type="reset" class="p-2 bg-gray-300 text-black rounded-md hover:bg-gray-400">Reset</button>
-      </div>
-    `;
-
-    formHtml += `
-                </form>
-            </div>
-        </div>
-    </div>
-  </p-fluid>`;  // End of the form
-
-    return formHtml;
-  };
-
-  // Convert the HTML to JSON and generate the form
-  try {
-    const jsonData = convertHtmlToJson(htmlFilePath);
-
-    // Generate the Tailwind CSS form
-    const tailwindForm = generateTailwindForm(jsonData);
-
-    // Output the generated form HTML
-    console.log(chalk.green('Generated Tailwind CSS Form:'));
-    console.log(tailwindForm);
-
-    // Optionally, save the form HTML to a file
-    const outputHtmlFilePath = path.basename(htmlFilePath, '.html') + '-tailwind-form.html';
-    fs.writeFileSync(outputHtmlFilePath, tailwindForm, 'utf8');
-    console.log(chalk.green(`\n✅ Form HTML output saved to ${outputHtmlFilePath}`));
-
-  } catch (err) {
-    console.error(chalk.red(`Error: Unable to process the HTML file: ${err.message}`));
-    process.exit(1);
-  }
-} else {
-  console.error(chalk.red(`Unknown command: ${command}`));
-  console.error(chalk.red('Usage: prime-gen <command> <appNameInCamelCase|htmlFilePath>'));
-  process.exit(1);
-}
