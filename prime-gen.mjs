@@ -5,9 +5,15 @@ import chalk from 'chalk';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import * as cheerio from 'cheerio';
+import { OpenAI } from 'openai';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
+
+// Set up OpenAI client
+const openai = new OpenAI({
+  apiKey: 'KEY' // Replace with your OpenAI API key
+});
 
 // Ensure the correct number of arguments are passed
 if (process.argv.length !== 4) {
@@ -33,8 +39,8 @@ function writeFile(filePath, content) {
   fs.writeFileSync(filePath, content.trimStart());
 }
 
-// Read the form HTML file from the provided path and extract form fields
-function processFormFile() {
+// First prompt: Extract JSON from HTML
+async function extractFormFieldsToJson() {
   const formHtmlPath = path.resolve(HTML_FILE_PATH);
 
   // Check if the file exists
@@ -48,38 +54,138 @@ const formHtml = fs.readFileSync(formHtmlPath, 'utf-8');
 // Load the HTML content using cheerio
 const $ = cheerio.load(formHtml);
 
-// Extract form fields and their attributes into the required JSON format
-const formFields = [];
-$('input, select, textarea').each((index, element) => {
-    let label = $(element).prev('label').text().trim(); // Try to find previous label
+  // Prepare the prompt to extract form fields into JSON
+  const prompt = `
+    Extract the labels, input types, formControlNames, and ids from the following HTML form and return them as a JSON array. 
+    Do not include any additional instructions, explanations, or text. Just return the raw JSON without any extra information.
 
-    // If no label is found, check for the "for" attribute or use the placeholder or ID
-    if (!label) {
-      label = $(element).closest('div').find('label').text().trim() || $(element).attr('id') || $(element).attr('placeholder') || 'Unnamed';
-    }
+    HTML:
+    ${formHtml}
+  `;
 
-  const inputType = $(element).attr('type') || $(element).prop('tagName').toLowerCase();
-  const fieldType = $(element).prop('tagName').toLowerCase();
+  try {
+    // Send the prompt to OpenAI API to extract JSON
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4',  // Use GPT-4 or another suitable model
+      messages: [
+        { role: 'system', content: 'You are an assistant that extracts form fields from HTML and returns them as JSON.' },
+        { role: 'user', content: prompt }
+      ],
+    });
 
-  formFields.push({
-    label,
-    type: fieldType,
-    inputType,
-    validators: {} // Add custom validation logic here if needed
-  });
-});
+    // Get the raw response
+    let jsonOutput = response.choices[0].message.content.trim();
 
-// Output the extracted form fields as a JSON array
-console.log(JSON.stringify(formFields, null, 2));
+    // Log the raw response for debugging
+    console.log("Raw JSON response from OpenAI:\n", jsonOutput);
+
+    // More aggressive cleanup: strip unwanted characters before and after the JSON array
+    // jsonOutput = jsonOutput.replace(/^\s*(.*?)(\[{)/, '[').replace(/(\}\s*)\]$/, ']');
+    
+    jsonOutput = jsonOutput.match(/\[[\s\S]*?\]/)?.[0];
+    
+    // Ensure the last object is properly closed with }
+    // if (jsonOutput.endsWith('[')) {
+    //   jsonOutput += '{}]';  // Add an empty object if the array ends without a proper closing brace
+    // }
+    
+    // Ensure the JSON array is properly closed
+    // if (jsonOutput && !jsonOutput.endsWith(']')) {
+    //   jsonOutput += ']';
+    // }
+
+    // Log the cleaned response for inspection
+    console.log("Cleaned JSON response:\n", jsonOutput);
+
+    // Parse the cleaned JSON output
+    const formFieldsJson = JSON.parse(jsonOutput);
+    return formFieldsJson;
+  } catch (err) {
+    console.error(chalk.red('Error extracting JSON from HTML:', err));
+  }
+}
+
+// Second prompt: Generate full Tailwind HTML layout from JSON
+async function generateTailwindHTML(formFieldsJson) {
+  const prompt = `
+    Using the following JSON, generate a full HTML form layout inside this structure, using Tailwind CSS for styling. Each form field should be inside a <div class="field mb-4">, with a label and an input element.
+
+    Here is the base layout:
+
+    <div class="card">
+        <div class="flex justify-between items-center mb-8">
+            <span class="text-surface-900 dark:text-surface-0 text-xl font-semibold">Sample Form</span>
+        </div>
+        <form [formGroup]="form" (ngSubmit)="onSubmit()">
+        
+        <!-- Sample field for style reference - don not include in the response -->
+        <div class="field mb-4">
+            <label for="name" class="block text-sm font-medium">Name</label>
+            <input id="name" type="text" pInputText formControlName="name" class="w-full" />
+        </div>
+        <!-- Sample field for style reference -->
+
+        <!-- Generated Form Fields Will Go Here -->
+        
+            <div class="flex justify-end">
+                <button pButton pRipple type="submit" label="Submit" [disabled]="form.invalid"></button>
+            </div>
+        </form>
+    </div>
+
+    The form should be populated with fields from the following JSON. Each field should follow this structure:
+    - A <div class="field mb-4"> containing:
+      - A <label> with a class of "block text-sm font-medium" for the label.
+      - An <input> element with the appropriate ID, inputType, and formControlName.
+      - Apply Tailwind CSS classes for styling and responsiveness.
+
+    JSON:
+    ${JSON.stringify(formFieldsJson)}
+
+    Ensure that each input field is correctly associated with its label using the "for" and "id" attributes. Only return the full HTML form with the fields added, no other text or explanation.
+  `;
+
+  try {
+    // Send the prompt to OpenAI API to generate the HTML layout
+    const response = await openai.chat.completions.create({
+      model: 'gpt-4',  // Use GPT-4 or another suitable model
+      messages: [
+        { role: 'system', content: 'You are a form layout generator using Tailwind CSS.' },
+        { role: 'user', content: prompt }
+      ],
+    });
+
+    // Process the response and return the generated HTML
+    const htmlOutput = response.choices[0].message.content;
+    return htmlOutput;
+  } catch (err) {
+    console.error(chalk.red('Error generating HTML layout from JSON:', err));
+  }
+}
+
+// Main function to process the HTML file and generate the Tailwind HTML layout
+async function processFormFile() {
+  // Step 1: Extract the form field data into JSON
+  const formFieldsJson = await extractFormFieldsToJson();
+
+  // Step 2: Generate the Tailwind HTML layout based on the extracted JSON
+  if (formFieldsJson) {
+    const tailwindHtml = await generateTailwindHTML(formFieldsJson);
+
+    // Output the generated HTML layout
+    console.log(tailwindHtml);
+    
+    // Optionally, write the generated HTML to a file
+    writeFile(`${BASE}/${APP_KEBAB}-form.component.html`, tailwindHtml);
+  }
 }
 
 // Call the function to process the HTML file
-try {
-  processFormFile();
-} catch (err) {
+processFormFile().catch(err => {
   console.error(chalk.red('An error occurred:', err));
   process.exit(1);
-}
+});
+
 // Example file generation (kept from your existing script)
 writeFile(`${BASE}/${APP_KEBAB}.routes.ts`, `
 import { Routes } from '@angular/router';
