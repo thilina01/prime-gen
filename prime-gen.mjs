@@ -135,16 +135,18 @@ async function generateTailwindHTML(formFieldsJson) {
             <span class="text-surface-900 dark:text-surface-0 text-xl font-semibold">${TITLE}</span>
         </div>
         <form [formGroup]="form" (ngSubmit)="onSubmit()">
-        
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
         <!-- Sample field for style reference - do not include in the response -->
-        <div class="field mb-4">
-            <label for="name" class="block text-sm font-medium">Name</label>
+        <div class="field">
+            <label for="name" class="block text-sm font-medium mb-1">Name</label>
             <input id="name" type="text" pInputText formControlName="name" class="w-full" />
         </div>
-        <!-- Sample field for style reference -->
+        <!-- Sample field for style reference End-->
 
         <!-- Generated Form Fields Will Go Here -->
         
+            </div>
             <div class="flex justify-end">
                 <button pButton pRipple type="submit" label="Submit" [disabled]="form.invalid"></button>
             </div>
@@ -258,6 +260,26 @@ export class ${PAS}FormComponent implements OnInit {
     }
 }
 `);
+
+writeFile(`${BASE}/${APP_KEBAB}-table.component.html`, `<div class="card">
+  <div class="flex justify-between items-center mb-8">
+    <span class="text-surface-900 dark:text-surface-0 text-xl font-semibold">
+      ${TITLE} Table
+    </span>
+    <button
+      pButton
+      pRipple
+      class="font-semibold"
+      icon="pi pi-plus"
+      label="Add New"
+      (click)="addItem()"
+    ></button>
+  </div>
+
+  <div class="table-responsive">
+      ${generateTable(formFieldsJson)}
+  </div>
+</div>`);
   }
 }
 
@@ -299,6 +321,33 @@ function generateFormGroup(formFieldsJson) {
 `;
 }
 
+function generateTable(formFieldsJson) {
+  const tableHeaders = formFieldsJson
+    .map(field => `<th>${field.label}</th>`)
+    .join('\n');
+
+  const tableCells = formFieldsJson
+    .map(field => `<td>{{ item.${field.formControlName} }}</td>`)
+    .join('\n');
+
+  return `
+    <p-table [value]="items">
+      <ng-template pTemplate="header">
+        <tr>
+          ${tableHeaders}
+        </tr>
+      </ng-template>
+      <ng-template pTemplate="body" let-item>
+        <tr>
+          ${tableCells}
+        </tr>
+      </ng-template>
+    </p-table>
+  `;
+}
+
+
+
 
 writeFile(`${BASE}/${APP_KEBAB}-form.component.scss`, `/* styles for ${APP_KEBAB} form */`);
 
@@ -334,43 +383,11 @@ export class ${PAS}TableComponent implements OnInit {
 
   addItem(): void {
     const nextId = this.items.length + 1;
-    this.items = [...this.items, { id: nextId, name: \"Item \${nextId}\" }];
+    this.items = [...this.items, { id: nextId, name: \`Item \${nextId}\` }];
   }
 }
 `);
 
-writeFile(`${BASE}/${APP_KEBAB}-table.component.html`, `<div class="card">
-  <div class="flex justify-between items-center mb-8">
-    <span class="text-surface-900 dark:text-surface-0 text-xl font-semibold">
-      ${TITLE} Table
-    </span>
-    <button
-      pButton
-      pRipple
-      class="font-semibold"
-      icon="pi pi-plus"
-      label="Add New"
-      (click)="addItem()"
-    ></button>
-  </div>
-
-  <div class="table-responsive">
-    <p-table [value]="items">
-      <ng-template pTemplate="header">
-        <tr>
-          <th>ID</th>
-          <th>Name</th>
-        </tr>
-      </ng-template>
-      <ng-template pTemplate="body" let-item>
-        <tr>
-          <td>{{ item.id }}</td>
-          <td>{{ item.name }}</td>
-        </tr>
-      </ng-template>
-    </p-table>
-  </div>
-</div>`);
 writeFile(`${BASE}/${APP_KEBAB}-table.component.scss`, `/* styles for ${APP_KEBAB} table */`);
 
 console.log(chalk.green(`\n✅ Files created under ${BASE}`));
