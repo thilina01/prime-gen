@@ -193,7 +193,7 @@ async function generateTailwindHTML(formFieldsJson) {
     if (startIndex !== -1 && endIndex !== -1) {
       const htmlContent = htmlOutput.substring(startIndex, endIndex + endTag.length);
       return htmlContent.trim();
-    } 
+    }
 
     // Return the cleaned HTML
     return htmlOutput.trim();
@@ -323,6 +323,43 @@ export class ${PAS}FormComponent implements OnInit {
 
     updateAppsRoutesTs(APP_KEBAB, TITLE, APP_CAMEL);
   }
+
+  writeFile(`${BASE}/${APP_KEBAB}-table.component.ts`, `
+import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
+import { CommonModule } from '@angular/common';
+import { TableModule } from 'primeng/table';
+import { ButtonModule } from 'primeng/button';
+import { RippleModule } from 'primeng/ripple';
+
+
+${generateInterface(formFieldsJson)}
+
+@Component({
+  selector: 'app-${APP_KEBAB}-table',
+  standalone: true,
+  changeDetection: ChangeDetectionStrategy.OnPush,
+  imports: [CommonModule, TableModule, ButtonModule, RippleModule],
+  templateUrl: './${APP_KEBAB}-table.component.html',
+  styleUrls: ['./${APP_KEBAB}-table.component.scss']
+})
+export class ${PAS}TableComponent implements OnInit {
+  items: ${PAS}[] = [];
+
+  ngOnInit(): void {
+      ${generateTableRows(formFieldsJson)}
+  }
+
+      ${generateAddItemFunction(formFieldsJson)}
+
+      editItem(id: number) {
+        throw new Error('Method not implemented.');
+      }
+      deleteItem(id: number): void {
+        this.items = this.items.filter(item => item.id !== id);
+      }
+
+}
+`);
 }
 
 // Call the function to process the HTML file
@@ -377,58 +414,105 @@ function generateTable(formFieldsJson) {
       <ng-template pTemplate="header">
         <tr>
           ${tableHeaders}
+          <th>Actions</th>
         </tr>
       </ng-template>
       <ng-template pTemplate="body" let-item>
         <tr>
           ${tableCells}
+          <td>
+            <div class="flex gap-2">
+              <button
+                pButton
+                icon="pi pi-pencil"
+                class="p-button-warning p-button-sm"
+                (click)="editItem(item.id)"
+                label=""
+              ></button>
+              <button
+                pButton
+                icon="pi pi-trash"
+                class="p-button-danger p-button-sm"
+                (click)="deleteItem(item.id)"
+                label=""
+              ></button>
+            </div>
+          </td>
         </tr>
       </ng-template>
     </p-table>
   `;
 }
 
+function generateInterface(formFieldsJson) {
+  const lines = formFieldsJson.map(field => {
+    const name = field.formControlName;
+    const type = (field.type === 'number') ? 'number' : 'string';
+    return `  ${name}: ${type};`;
+  });
+
+  return `export interface ${PAS} {\n
+  id: number; \n
+  ${lines.join('\n')}\n}`;
+}
 
 
+function generateTableRows(formFieldsJson) {
+  const items = [];
+
+  for (let i = 1; i <= 5; i++) {
+    const row = { 'id': i };
+    formFieldsJson.forEach(field => {
+      const key = field.formControlName;
+      const type = field.type || 'text';
+      if (type === 'number') {
+        row[key] = field.formControlName === 'revNo'
+          ? 10 + i
+          : parseFloat(`${i}.${formFieldsJson.indexOf(field)}`);
+      } else {
+        row[key] = `${key}_val${i}`;
+      }
+    });
+
+    items.push(row);
+  }
+
+  return `this.items = ${JSON.stringify(items, null, 2)};`;
+}
+
+function generateAddItemFunction(formFieldsJson) {
+  const rowFields = formFieldsJson.map((field, index) => {
+    const key = field.formControlName;
+    const type = field.type === 'number' ? 'number' : 'string';
+
+    if (type === 'number') {
+      if (key.toLowerCase().includes('id')) {
+        return `      ${key}: nextId`;
+      }
+      if (key.toLowerCase().includes('rev')) {
+        return `      ${key}: 10 + nextId`;
+      }
+      return `      ${key}: nextId + ${index}`;
+    } else {
+      return `      ${key}: \`${key}_val\${nextId}\``;
+    }
+  });
+
+  return `  addItem(): void {
+    const nextId = this.items.length + 1;
+    this.items = [
+      ...this.items,
+      {
+      id: nextId,
+${rowFields.join(',\n')}
+      }
+    ];
+  }`;
+}
 
 writeFile(`${BASE}/${APP_KEBAB}-form.component.scss`, `/* styles for ${APP_KEBAB} form */`);
 
-writeFile(`${BASE}/${APP_KEBAB}-table.component.ts`, `
-import { Component, OnInit, ChangeDetectionStrategy } from '@angular/core';
-import { CommonModule } from '@angular/common';
-import { TableModule } from 'primeng/table';
-import { ButtonModule } from 'primeng/button';
-import { RippleModule } from 'primeng/ripple';
 
-export interface ${PAS}Item {
-  id: number;
-  name: string;
-}
-
-@Component({
-  selector: 'app-${APP_KEBAB}-table',
-  standalone: true,
-  changeDetection: ChangeDetectionStrategy.OnPush,
-  imports: [CommonModule, TableModule, ButtonModule, RippleModule],
-  templateUrl: './${APP_KEBAB}-table.component.html',
-  styleUrls: ['./${APP_KEBAB}-table.component.scss']
-})
-export class ${PAS}TableComponent implements OnInit {
-  items: ${PAS}Item[] = [];
-
-  ngOnInit(): void {
-    this.items = [
-      { id: 1, name: 'Item 1' },
-      { id: 2, name: 'Item 2' }
-    ];
-  }
-
-  addItem(): void {
-    const nextId = this.items.length + 1;
-    this.items = [...this.items, { id: nextId, name: \`Item \${nextId}\` }];
-  }
-}
-`);
 
 writeFile(`${BASE}/${APP_KEBAB}-table.component.scss`, `/* styles for ${APP_KEBAB} table */`);
 
