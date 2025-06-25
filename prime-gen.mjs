@@ -184,6 +184,17 @@ async function generateTailwindHTML(formFieldsJson) {
     htmlOutput = htmlOutput.replace(/<!--.*?-->/gs, ''); // Remove comments (style references, etc.)
 
 
+    const startTag = '<div ';
+    const endTag = '</div>';
+
+    const startIndex = htmlOutput.indexOf(startTag);
+    const endIndex = htmlOutput.lastIndexOf(endTag);
+
+    if (startIndex !== -1 && endIndex !== -1) {
+      const htmlContent = htmlOutput.substring(startIndex, endIndex + endTag.length);
+      return htmlContent.trim();
+    } 
+
     // Return the cleaned HTML
     return htmlOutput.trim();
 
@@ -263,34 +274,34 @@ export class ${PAS}FormComponent implements OnInit {
 }
 `);
 
-function updateAppsRoutesTs(appKebab, appTitle, appCamel) {
-  const project = new Project();
-  const filePath = path.resolve('src/app/apps/apps.routes.ts'); // adjust as needed
-  const sourceFile = project.addSourceFileAtPath(filePath);
+    function updateAppsRoutesTs(appKebab, appTitle, appCamel) {
+      const project = new Project();
+      const filePath = path.resolve('src/app/apps/apps.routes.ts'); // adjust as needed
+      const sourceFile = project.addSourceFileAtPath(filePath);
 
-  const routesArray = sourceFile.getFirstDescendantByKindOrThrow(SyntaxKind.ArrayLiteralExpression);
+      const routesArray = sourceFile.getFirstDescendantByKindOrThrow(SyntaxKind.ArrayLiteralExpression);
 
-  const alreadyExists = routesArray.getElements().some(el => el.getText().includes(`path: '${appKebab}'`));
+      const alreadyExists = routesArray.getElements().some(el => el.getText().includes(`path: '${appKebab}'`));
 
-  if (alreadyExists) {
-    console.log(chalk.yellow(`⚠️  Route for '${appKebab}' already exists in apps.routes.ts`));
-    return;
-  }
+      if (alreadyExists) {
+        console.log(chalk.yellow(`⚠️  Route for '${appKebab}' already exists in apps.routes.ts`));
+        return;
+      }
 
-  const newRoute = `{
+      const newRoute = `{
     path: '${appKebab}',
     data: { breadcrumb: '${appTitle}' },
     loadChildren: () =>
       import('@/apps/${appKebab}/${appKebab}.routes').then(m => m.${appCamel}Routes)
   }`;
 
-  routesArray.addElement(newRoute);
-  sourceFile.saveSync();
+      routesArray.addElement(newRoute);
+      sourceFile.saveSync();
 
-  console.log(chalk.green(`✅ Route for '${appKebab}' added to apps.routes.ts`));
-}
+      console.log(chalk.green(`✅ Route for '${appKebab}' added to apps.routes.ts`));
+    }
 
-writeFile(`${BASE}/${APP_KEBAB}-table.component.html`, `<div class="card">
+    writeFile(`${BASE}/${APP_KEBAB}-table.component.html`, `<div class="card">
   <div class="flex justify-between items-center mb-8">
     <span class="text-surface-900 dark:text-surface-0 text-xl font-semibold">
       ${TITLE} Table
@@ -310,8 +321,8 @@ writeFile(`${BASE}/${APP_KEBAB}-table.component.html`, `<div class="card">
   </div>
 </div>`);
 
-  updateAppsRoutesTs(APP_KEBAB, TITLE, APP_CAMEL);  
-}
+    updateAppsRoutesTs(APP_KEBAB, TITLE, APP_CAMEL);
+  }
 }
 
 // Call the function to process the HTML file
