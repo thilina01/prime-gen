@@ -8,7 +8,6 @@ import * as cheerio from 'cheerio';
 import { OpenAI } from 'openai';
 import { Project, SyntaxKind } from 'ts-morph';
 
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
@@ -31,16 +30,23 @@ if (process.argv.length !== 4) {
   process.exit(1);
 }
 
-const APP_CAMEL = process.argv[2];
+function toCamelCase(str) {
+  return str
+    .replace(/[-_ ]+./g, s => s.charAt(s.length - 1).toUpperCase())  // kebab/snake/space to upper
+    .replace(/[^a-zA-Z0-9]/g, '') // remove other non-alphanumeric
+    .replace(/^[A-Z]/, s => s.toLowerCase()); // lowercase the first letter if needed
+}
+
+const rawAppName = process.argv[2];
 const HTML_FILE_PATH = process.argv[3];
 
+const APP_CAMEL = toCamelCase(rawAppName);
 const APP_KEBAB = APP_CAMEL.replace(/([a-z0-9])([A-Z])/g, '$1-$2').toLowerCase();
 const PAS = APP_CAMEL.charAt(0).toUpperCase() + APP_CAMEL.slice(1);
 const TITLE = APP_CAMEL.replace(/([a-z0-9])([A-Z])/g, '$1 $2')
   .split(' ')
   .map(w => w.charAt(0).toUpperCase() + w.slice(1).toLowerCase())
   .join(' ');
-
 const BASE = path.join('src/app/apps', APP_KEBAB);
 fs.mkdirSync(BASE, { recursive: true });
 
@@ -144,6 +150,7 @@ async function generateTailwindHTML(formFieldsJson) {
             <label for="name" class="block text-sm font-medium mb-1">Name</label>
             <input id="name" type="text" pInputText formControlName="name" class="w-full" />
         </div>
+        
         <!-- Sample field for style reference End-->
 
         <!-- Generated Form Fields Will Go Here -->
@@ -551,8 +558,6 @@ ${rowFields.join(',\n')}
 }
 
 writeFile(`${BASE}/${APP_KEBAB}-form.component.scss`, `/* styles for ${APP_KEBAB} form */`);
-
-
 
 writeFile(`${BASE}/${APP_KEBAB}-table.component.scss`, `/* styles for ${APP_KEBAB} table */`);
 
